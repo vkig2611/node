@@ -1,0 +1,46 @@
+name: Notify Slack with Zipped .bru Files on PR Merge
+
+on:
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+
+jobs:
+  zip_and_send_to_slack:
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout the code
+      - name: Checkout code
+        uses: actions/checkout@v2
+
+      # Step 2: Set up Node.js (optional, if you need to run a Node.js script for extra processing)
+      - name: Set up Node.js
+        uses: actions/setup-node@v2
+        with:
+          node-version: '14'
+
+      # Step 3: Zip .bru files
+      - name: Zip .bru files
+        run: |
+          mkdir -p output
+          find . -type f -name "*.bru" -exec zip output/bru-files.zip {} +
+      
+      # Step 4: Upload .bru zip file as an artifact (optional, in case you want to store it as an artifact)
+      - name: Upload zip file as artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: bru-files
+          path: output/bru-files.zip
+
+      # Step 5: Send the zipped .bru file to Slack
+      - name: Send zipped .bru file to Slack
+        env:
+          SLACK_TOKEN: ${{ secrets.SLACK_TOKEN }}
+          SLACK_CHANNEL_ID: ${{ secrets.SLACK_CHANNEL_ID }}
+        run: |
+          curl -F file=@output/bru-files.zip \
+               -F "initial_comment=Here are the latest .bru files from the PR merge" \
+               -F channels=$SLACK_CHANNEL_ID \
+               -H "Authorization: Bearer $SLACK_TOKEN" \
+               https://slack.com/api/files.upload
